@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Control y Seguimiento de Gastos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PapaParse for CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-1.5 rounded-lg flex items-center justify-center shadow-sm h-10 px-3">
+                    <img src="logo.png" alt="Hashtag Logo" class="h-7 object-contain" onerror="this.onerror=null; this.outerHTML='<span class=\'font-black italic text-indigo-900 text-xl tracking-tighter\'>#Hashtag</span>';">
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">ExpenseTrack Master</h1>
+                    <p class="text-xs text-indigo-300">Control de Gastos & Gestión Financiera</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button onclick="openModal('categoryModal')" class="flex items-center space-x-1 sm:space-x-2 bg-indigo-800 hover:bg-indigo-700 text-indigo-100 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition" title="Gestionar Categorías">
+                    <i data-lucide="tag" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Categorías</span>
+                </button>
+                <button onclick="openModal('settingsModal')" class="flex items-center space-x-1 sm:space-x-2 bg-indigo-800 hover:bg-indigo-700 text-indigo-100 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition" title="Ajustes del Sistema">
+                    <i data-lucide="settings" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Ajustes</span>
+                </button>
+                <button onclick="openModal('importModal')" class="flex items-center space-x-1 sm:space-x-2 bg-indigo-800 hover:bg-indigo-700 text-indigo-100 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition">
+                    <i data-lucide="file-up" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Cargar Planilla</span>
+                </button>
+                <button onclick="confirmResetData()" class="flex items-center space-x-1 sm:space-x-2 bg-rose-800 hover:bg-rose-700 text-rose-100 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition" title="Reiniciar Planilla Completa">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span class="hidden lg:inline">Reiniciar Planilla</span>
+                </button>
+                <button onclick="openModal('paymentModal')" class="flex items-center space-x-1 sm:space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-md transition">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Nuevo Gasto</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Navigation Tabs & Global Settings -->
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-200 pb-2 gap-2">
+            <nav class="flex space-x-1 sm:space-x-4 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0" id="tabsNav">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active px-4 py-2 text-sm font-medium rounded-lg text-indigo-600 bg-indigo-50 flex items-center space-x-2">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>Dashboard & Resumen</span>
+                </button>
+                <button onclick="switchTab('detail')" id="tab-detail" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 flex items-center space-x-2">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Vista Detallada</span>
+                </button>
+                <button onclick="switchTab('reports')" id="tab-reports" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 flex items-center space-x-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>Centro de Reportes</span>
+                </button>
+            </nav>
+
+            <div class="flex items-center space-x-3 text-xs text-slate-500 w-full sm:w-auto justify-end">
+                <div class="flex items-center space-x-1 bg-amber-50 text-amber-800 border border-amber-200 px-2 py-1 rounded">
+                    <i data-lucide="bell" class="w-3.5 h-3.5 text-amber-600"></i>
+                    <span>Aviso previo:</span>
+                    <select id="alertDaysSelect" onchange="renderAll()" class="bg-transparent font-semibold focus:outline-none">
+                        <option value="3">3 días</option>
+                        <option value="5" selected>5 días</option>
+                        <option value="7">7 días</option>
+                        <option value="15">15 días</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <span>Moneda:</span>
+                    <select id="currencySelect" onchange="renderAll()" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="ARS" selected>ARS ($)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-detail" class="space-y-4 hidden">
+            <!-- Filter Bar -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Buscar Concepto / Proveedor</label>
+                    <input type="text" id="filterSearch" oninput="applyFilters()" placeholder="Ej. Tarjeta Visa, Impuestos..." class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
+                    <select id="filterCategory" onchange="applyFilters()" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+                    <select id="filterStatus" onchange="applyFilters()" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="ALL">Todos</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Próximo a Vencer">Próximo a Vencer</option>
+                        <option value="Pago Parcial">Pago Parcial</option>
+                        <option value="Pagado">Pagado</option>
+                        <option value="Vencido">Vencido</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Mes y Año</label>
+                    <input type="month" id="filterMonth" onchange="applyFilters()" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="resetFilters()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-1.5 rounded-lg text-sm transition">
+                        Limpiar Filtros
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detailed Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">
+                                <th class="p-3">Concepto</th>
+                                <th class="p-3">Categoría</th>
+                                <th class="p-3">F. Emisión</th>
+                                <th class="p-3">F. Vencimiento</th>
+                                <th class="p-3">Estado</th>
+                                <th class="p-3 text-right">Monto Total</th>
+                                <th class="p-3 text-right">Abonado / Saldo</th>
+                                <th class="p-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fullTableBody" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-dashboard" class="space-y-6">
+            <!-- KPI Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Gastos del Mes</p>
+                        <h3 class="text-2xl font-bold text-slate-900 mt-1" id="kpiTotal">$ 0,00</h3>
+                        <p class="text-xs text-slate-400 mt-1" id="kpiTotalCount">0 gastos registrados</p>
+                    </div>
+                    <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                        <i data-lucide="dollar-sign" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Efectivamente Pagado</p>
+                        <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="kpiPaid">$ 0,00</h3>
+                        <p class="text-xs text-emerald-600/70 mt-1" id="kpiPaidPercentage">0% abonado</p>
+                    </div>
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Pendiente / Parciales</p>
+                        <h3 class="text-2xl font-bold text-amber-500 mt-1" id="kpiPending">$ 0,00</h3>
+                        <p class="text-xs text-amber-600/70 mt-1" id="kpiPendingCount">0 por saldar</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Gastos Vencidos</p>
+                        <h3 class="text-2xl font-bold text-rose-600 mt-1" id="kpiOverdue">$ 0,00</h3>
+                        <p class="text-xs text-rose-600/70 mt-1" id="kpiOverdueCount">0 gastos atrasados</p>
+                    </div>
+                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-600"></i>
+                            Distribución Diaria de Vencimientos de Gastos
+                        </h3>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-600"></i>
+                            Gastos por Categoría
+                        </h3>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Urgent & Upcoming Payments Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i data-lucide="bell-ring" class="w-4 h-4 text-amber-500"></i>
+                        Gastos Prioritarios & Próximos Vencimientos
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+                                <th class="p-3">Concepto</th>
+                                <th class="p-3">Categoría</th>
+                                <th class="p-3">Vencimiento</th>
+                                <th class="p-3">Estado</th>
+                                <th class="p-3 text-right">Monto Total</th>
+                                <th class="p-3 text-right">Pendiente</th>
+                                <th class="p-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="urgentTableBody" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-reports" class="space-y-6 hidden">
+            <!-- Report Controls -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Tipo de Reporte</label>
+                        <select id="reportPeriod" onchange="generateReport()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="monthly" selected>Mensual</option>
+                            <option value="30days">Próximos 30 Días Corridos</option>
+                            <option value="weekly">Semanal (Últimos 7 días)</option>
+                            <option value="yearly">Anual</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Seleccionar Fecha / Periodo</label>
+                        <input type="month" id="reportDate" onchange="generateReport()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        <span>Imprimir / PDF</span>
+                    </button>
+                    <button onclick="exportReportCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Exportar CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Report Output Preview -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6" id="printableReport">
+                <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900" id="reportTitle">Reporte Mensual de Gastos</h2>
+                        <p class="text-xs text-slate-500" id="reportSubtitle">Resumen de obligaciones e histórico de movimientos</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">Generado el: <span id="reportGeneratedAt"></span></p>
+                        <p class="text-xs font-semibold text-indigo-600 mt-1">ExpenseTrack System</p>
+                    </div>
+                </div>
+
+                <!-- Report Summary Stats -->
+                <div class="grid grid-cols-3 gap-4 text-center border-b border-slate-200 pb-4">
+                    <div class="p-3 bg-slate-50 rounded-lg">
+                        <p class="text-xs text-slate-500">Monto Total Programado</p>
+                        <p class="text-lg font-bold text-slate-800" id="repTotal">0.00</p>
+                    </div>
+                    <div class="p-3 bg-emerald-50 rounded-lg">
+                        <p class="text-xs text-emerald-600">Total Efectivamente Pagado</p>
+                        <p class="text-lg font-bold text-emerald-700" id="repPaid">0.00</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 rounded-lg">
+                        <p class="text-xs text-amber-600">Saldo Pendiente / Vencido</p>
+                        <p class="text-lg font-bold text-amber-700" id="repPending">0.00</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Breakdown Table -->
+                <div>
+                    <h4 class="font-semibold text-slate-800 text-sm mb-3">Desglose Detallado</h4>
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-300 text-slate-600 bg-slate-100">
+                                <th class="p-2">Fecha Venc.</th>
+                                <th class="p-2">Concepto</th>
+                                <th class="p-2">Categoría</th>
+                                <th class="p-2">Estado</th>
+                                <th class="p-2 text-right">Monto Total</th>
+                                <th class="p-2 text-right">Abonado</th>
+                                <th class="p-2 text-right">Saldo Restante</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody" class="divide-y divide-slate-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Add / Edit Payment -->
+    <div id="paymentModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform transition-all">
+            <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base" id="modalTitle">Agregar Nuevo Gasto</h3>
+                <button onclick="closeModal('paymentModal')" class="text-indigo-200 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="paymentForm" onsubmit="savePayment(event)" class="p-6 space-y-4">
+                <input type="hidden" id="payId">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Concepto / Descripción *</label>
+                    <input type="text" id="payTitle" required placeholder="Ej. Tarjeta Visa Galicia, Alquiler local..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Categoría</label>
+                            <button type="button" onclick="openModal('categoryModal')" class="text-[10px] text-indigo-600 hover:underline">+ Crear nueva</button>
+                        </div>
+                        <select id="payCategory" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Importe Total *</label>
+                        <input type="number" step="0.01" id="payAmount" required placeholder="0.00" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha Emisión</label>
+                        <input type="date" id="payIssueDate" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha Vencimiento *</label>
+                        <input type="date" id="payDueDate" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Frecuencia</label>
+                        <select id="payFrequency" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="unique">Único</option>
+                            <option value="monthly">Periódico (Mensual)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Estado Inicial</label>
+                        <select id="payStatus" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Pagado">Pagado Completo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-200 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('paymentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-md transition">Guardar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Pago Parcial y Reagendar Saldo -->
+    <div id="partialModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform transition-all">
+            <div class="bg-amber-600 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                    <span>Registrar Pago Parcial de Gasto</span>
+                </h3>
+                <button onclick="closeModal('partialModal')" class="text-amber-100 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="partialForm" onsubmit="savePartialPayment(event)" class="p-6 space-y-4">
+                <input type="hidden" id="partialPayId">
+
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+                    <p class="font-bold text-sm" id="partialPayTitle">Concepto del Gasto</p>
+                    <p>Monto Original Total: <span class="font-bold" id="partialPayTotalAmount">$0,00</span></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Monto a Abonar Ahora *</label>
+                        <input type="number" step="0.01" id="partialPaidAmount" required oninput="calculatePartialRemaining()" placeholder="0.00" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Saldo Restante Resultante</label>
+                        <input type="text" id="partialRemainingDisplay" readonly class="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-amber-700 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-3">
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Condiciones de pago para el saldo restante</h4>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Reagendar Saldo en *</label>
+                            <select id="partialScheduleType" onchange="togglePartialScheduleOptions()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <option value="single">1 Pago Nuevo (Fecha Fija)</option>
+                                <option value="installments">Múltiples Cuotas</option>
+                            </select>
+                        </div>
+                        <div id="partialDueDateContainer">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nueva Fecha Vencimiento *</label>
+                            <input type="date" id="partialNextDueDate" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div id="partialInstallmentsContainer" class="grid grid-cols-2 gap-4 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nº de Cuotas</label>
+                            <input type="number" id="partialInstallmentCount" min="2" max="24" value="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Frecuencia de Cuotas</label>
+                            <select id="partialInstallmentFreq" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <option value="weekly">Semanal</option>
+                                <option value="biweekly">Quincenal</option>
+                                <option value="monthly" selected>Mensual</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-200 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('partialModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium shadow-md transition flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Confirmar y Agregar Saldo</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Import CSV / Planilla -->
+    <div id="importModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base">Cargar Datos desde Planilla (CSV)</h3>
+                <button onclick="closeModal('importModal')" class="text-indigo-200 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-500">
+                    Carga un archivo CSV. Debe incluir columnas para: <span class="font-semibold">Concepto, Monto, Vencimiento, Categoria, Estado</span>.
+                </p>
+
+                <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-indigo-500 transition cursor-pointer" onclick="document.getElementById('csvFileInput').click()">
+                    <i data-lucide="upload-cloud" class="w-10 h-10 text-indigo-500 mx-auto mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Haz clic para seleccionar tu planilla (.csv)</p>
+                    <p class="text-xs text-slate-400 mt-1">O arrastra el archivo aquí</p>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                </div>
+
+                <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-800 space-y-1">
+                    <p class="font-semibold">💡 O puedes descargar una plantilla base:</p>
+                    <a href="#" onclick="downloadSampleCSV(event)" class="text-indigo-600 underline hover:text-indigo-900">Descargar Plantilla CSV Ejemplo</a>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button type="button" onclick="closeModal('importModal')" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Manage Categories -->
+    <div id="categoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="tag" class="w-4 h-4"></i>
+                    <span>Gestionar Categorías</span>
+                </h3>
+                <button onclick="closeModal('categoryModal')" class="text-indigo-200 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <form onsubmit="addNewCategory(event)" class="flex gap-2">
+                    <input type="text" id="newCategoryInput" required placeholder="Nombre de nueva categoría..." class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1 shrink-0">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Agregar</span>
+                    </button>
+                </form>
+
+                <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-60 overflow-y-auto custom-scrollbar" id="categoriesList">
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button type="button" onclick="closeModal('categoryModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Settings / Ajustes de Sistema -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+            <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span>Configuración & Ajustes del Sistema</span>
+                </h3>
+                <button onclick="closeModal('settingsModal')" class="text-indigo-200 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form onsubmit="saveSettings(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre de la Aplicación / Empresa</label>
+                    <input type="text" id="settingAppName" placeholder="ExpenseTrack Master" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Subtítulo / Descripción</label>
+                    <input type="text" id="settingAppSubtitle" placeholder="Control de Gastos & Gestión Financiera" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Moneda Principal</label>
+                        <select id="settingDefaultCurrency" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="ARS">ARS ($)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Días de Aviso Previo por Defecto</label>
+                        <select id="settingDefaultAlertDays" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="3">3 días</option>
+                            <option value="5">5 días</option>
+                            <option value="7">7 días</option>
+                            <option value="15">15 días</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-3 space-y-2">
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Acciones Avanzadas de Datos</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="exportBackupJSON()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Descargar Copia de Seguridad</span>
+                        </button>
+                        <button type="button" onclick="confirmResetData()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            <span>Reiniciar Todos los Datos</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-200 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('settingsModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-md transition flex items-center gap-1.5">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>Guardar Configuración</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmation / Confirmación de Verificación -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-rose-600 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-base flex items-center gap-2" id="confirmModalTitle">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    <span>¿Confirmar Acción?</span>
+                </h3>
+                <button onclick="closeModal('confirmModal')" class="text-rose-100 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-slate-700" id="confirmModalMessage">
+                    Esta acción no se puede deshacer. ¿Estás seguro de que deseas continuar?
+                </p>
+
+                <div class="bg-rose-50 p-3 rounded-lg text-xs text-rose-800 font-semibold" id="confirmModalWarning">
+                    ⚠️ Se eliminarán todos los gastos y datos registrados.
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('confirmModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="button" id="confirmModalActionBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Sí, Confirmar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let categories = [
+            'Tarjetas de Crédito',
+            'Proveedores Servicios',
+            'Proveedores Mercadería',
+            'Sueldos',
+            'Impuestos',
+            'Alquileres',
+            'Préstamos',
+            'Costos Financieros'
+        ];
+
+        let payments = [
+            { id: '1', title: 'Alquiler Depósito Central', category: 'Alquileres', amount: 450000.00, paidAmount: 450000.00, issueDate: '2026-10-01', dueDate: '2026-10-15', status: 'Pagado', frequency: 'monthly' },
+            { id: '2', title: 'Resumen Tarjeta Visa Galicia', category: 'Tarjetas de Crédito', amount: 350000.00, paidAmount: 150000.00, issueDate: '2026-10-05', dueDate: '2026-10-20', status: 'Pago Parcial', frequency: 'monthly' },
+            { id: '3', title: 'Factura Distribuidora Lácteos', category: 'Proveedores Mercadería', amount: 890500.00, paidAmount: 0.00, issueDate: '2026-10-05', dueDate: '2026-10-18', status: 'Pendiente', frequency: 'unique' },
+            { id: '4', title: 'Servicio Eléctrico Comercial', category: 'Proveedores Servicios', amount: 125000.00, paidAmount: 0.00, issueDate: '2026-10-02', dueDate: '2026-10-14', status: 'Vencido', frequency: 'monthly' },
+            { id: '5', title: 'IIBB & Tasa Municipal', category: 'Impuestos', amount: 210000.00, paidAmount: 0.00, issueDate: '2026-10-10', dueDate: '2026-10-22', status: 'Pendiente', frequency: 'monthly' },
+            { id: '6', title: 'Nómina Personal de Planta', category: 'Sueldos', amount: 3200000.00, paidAmount: 0.00, issueDate: '2026-10-01', dueDate: '2026-10-30', status: 'Pendiente', frequency: 'monthly' }
+        ];
+
+        let dailyChartInstance = null;
+        let categoryChartInstance = null;
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            populateCategorySelects();
+            renderCategoryManagerList();
+            setDefaultDates();
+            loadSettingsToUI();
+            renderAll();
+            lucide.createIcons();
+        };
+
+        function loadSettingsToUI() {
+            const appTitle = document.querySelector('header h1');
+            const appSub = document.querySelector('header p');
+            const settingName = document.getElementById('settingAppName');
+            const settingSub = document.getElementById('settingAppSubtitle');
+
+            if (appTitle && settingName) settingName.value = appTitle.innerText;
+            if (appSub && settingSub) settingSub.value = appSub.innerText;
+
+            const currSelect = document.getElementById('currencySelect');
+            const setCurrSelect = document.getElementById('settingDefaultCurrency');
+            if (currSelect && setCurrSelect) setCurrSelect.value = currSelect.value;
+
+            const alertSelect = document.getElementById('alertDaysSelect');
+            const setAlertSelect = document.getElementById('settingDefaultAlertDays');
+            if (alertSelect && setAlertSelect) setAlertSelect.value = alertSelect.value;
+        }
+
+        function saveSettings(e) {
+            e.preventDefault();
+            const nameVal = document.getElementById('settingAppName').value;
+            const subVal = document.getElementById('settingAppSubtitle').value;
+            const currVal = document.getElementById('settingDefaultCurrency').value;
+            const alertVal = document.getElementById('settingDefaultAlertDays').value;
+
+            const appTitle = document.querySelector('header h1');
+            const appSub = document.querySelector('header p');
+            if (appTitle && nameVal) appTitle.innerText = nameVal;
+            if (appSub && subVal) appSub.innerText = subVal;
+
+            const currSelect = document.getElementById('currencySelect');
+            if (currSelect) currSelect.value = currVal;
+
+            const alertSelect = document.getElementById('alertDaysSelect');
+            if (alertSelect) alertSelect.value = alertVal;
+
+            closeModal('settingsModal');
+            renderAll();
+        }
+
+        function confirmResetData() {
+            showConfirmationModal(
+                'Reiniciar Planilla Completa',
+                '¿Estás seguro de que deseas vaciar y reiniciar toda la planilla de gastos registrados? Todos los registros actuales serán borrados.',
+                '⚠️ Esta acción es irreversible y eliminará todos los registros.',
+                function() {
+                    payments = [];
+                    renderAll();
+                    closeModal('confirmModal');
+                    if (document.getElementById('settingsModal')) closeModal('settingsModal');
+                }
+            );
+        }
+
+        function showConfirmationModal(title, message, warning, actionCallback) {
+            document.getElementById('confirmModalTitle').querySelector('span').innerText = title;
+            document.getElementById('confirmModalMessage').innerText = message;
+            document.getElementById('confirmModalWarning').innerText = warning;
+
+            const btn = document.getElementById('confirmModalActionBtn');
+            btn.onclick = actionCallback;
+
+            openModal('confirmModal');
+        }
+
+        function exportBackupJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                categories: categories,
+                payments: payments,
+                exportedAt: new Date().toISOString()
+            }, null, 2));
+
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `Backup_Gastos_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function populateCategorySelects() {
+            const filterCat = document.getElementById('filterCategory');
+            const payCat = document.getElementById('payCategory');
+
+            if (!filterCat || !payCat) return;
+
+            const currentFilterVal = filterCat.value || 'ALL';
+            const currentPayVal = payCat.value;
+
+            filterCat.innerHTML = `<option value="ALL">Todas las Categorías</option>`;
+            payCat.innerHTML = '';
+
+            categories.forEach(cat => {
+                const opt1 = document.createElement('option');
+                opt1.value = cat;
+                opt1.textContent = cat;
+                filterCat.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = cat;
+                opt2.textContent = cat;
+                payCat.appendChild(opt2);
+            });
+
+            filterCat.value = currentFilterVal;
+            if (currentPayVal && categories.includes(currentPayVal)) {
+                payCat.value = currentPayVal;
+            }
+        }
+
+        function renderCategoryManagerList() {
+            const container = document.getElementById('categoriesList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            categories.forEach((cat) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-2.5 hover:bg-slate-50 text-sm font-medium text-slate-700';
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        <span>${cat}</span>
+                    </div>
+                    <button onclick="removeCategory('${cat}')" class="text-slate-400 hover:text-rose-600 transition p-1" title="Eliminar Categoría">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function addNewCategory(e) {
+            e.preventDefault();
+            const input = document.getElementById('newCategoryInput');
+            if (!input) return;
+            const newCat = input.value.trim();
+
+            if (newCat && !categories.map(c => c.toLowerCase()).includes(newCat.toLowerCase())) {
+                categories.push(newCat);
+                input.value = '';
+                populateCategorySelects();
+                renderCategoryManagerList();
+                renderAll();
+            }
+        }
+
+        function removeCategory(catName) {
+            const isUsed = payments.some(p => p.category === catName);
+            if (isUsed) {
+                alert(`No se puede eliminar la categoría "${catName}" porque tiene gastos asociados.`);
+                return;
+            }
+
+            categories = categories.filter(c => c !== catName);
+            populateCategorySelects();
+            renderCategoryManagerList();
+            renderAll();
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function setDefaultDates() {
+            const today = new Date();
+            const todayISO = today.toISOString().split('T')[0];
+            const currentMonthStr = todayISO.slice(0, 7);
+
+            const filterMonthEl = document.getElementById('filterMonth');
+            if (filterMonthEl && !filterMonthEl.value) filterMonthEl.value = currentMonthStr;
+
+            const reportDateEl = document.getElementById('reportDate');
+            if (reportDateEl && !reportDateEl.value) reportDateEl.value = currentMonthStr;
+
+            const payIssueDateEl = document.getElementById('payIssueDate');
+            if (payIssueDateEl && !payIssueDateEl.value) payIssueDateEl.value = todayISO;
+
+            const payDueDateEl = document.getElementById('payDueDate');
+            if (payDueDateEl && !payDueDateEl.value) payDueDateEl.value = todayISO;
+
+            const partialNextDueDate = document.getElementById('partialNextDueDate');
+            if (partialNextDueDate && !partialNextDueDate.value) {
+                const nextWeek = new Date();
+                nextWeek.setDate(today.getDate() + 7);
+                partialNextDueDate.value = nextWeek.toISOString().split('T')[0];
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-indigo-600', 'bg-indigo-50');
+                btn.classList.add('text-slate-600');
+            });
+
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'text-indigo-600', 'bg-indigo-50');
+                activeBtn.classList.remove('text-slate-600');
+            }
+
+            const views = ['dashboard', 'detail', 'reports'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) el.classList.add('hidden');
+            });
+
+            const currentView = document.getElementById(`view-${tabName}`);
+            if (currentView) currentView.classList.remove('hidden');
+        }
+
+        function renderKPIs() {
+            const filterMonthEl = document.getElementById('filterMonth');
+            if (!filterMonthEl) return;
+            const selectedMonth = filterMonthEl.value;
+            const monthPayments = payments.filter(p => p.dueDate.startsWith(selectedMonth));
+
+            const total = monthPayments.reduce((acc, p) => acc + p.amount, 0);
+            const paid = monthPayments.reduce((acc, p) => acc + (p.paidAmount || (p.status === 'Pagado' ? p.amount : 0)), 0);
+            const pending = monthPayments.filter(p => p.status === 'Pendiente' || p.status === 'Próximo a Vencer' || p.status === 'Pago Parcial').reduce((acc, p) => acc + (p.amount - (p.paidAmount || 0)), 0);
+            const overdue = monthPayments.filter(p => p.status === 'Vencido').reduce((acc, p) => acc + (p.amount - (p.paidAmount || 0)), 0);
+
+            const totalCount = monthPayments.length;
+            const pendingCount = monthPayments.filter(p => p.status === 'Pendiente' || p.status === 'Próximo a Vencer' || p.status === 'Pago Parcial').length;
+            const overdueCount = monthPayments.filter(p => p.status === 'Vencido').length;
+
+            const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+
+            document.getElementById('kpiTotal').innerText = formatMoney(total);
+            document.getElementById('kpiTotalCount').innerText = `${totalCount} gastos registrados`;
+
+            document.getElementById('kpiPaid').innerText = formatMoney(paid);
+            document.getElementById('kpiPaidPercentage').innerText = `${paidPct}% efectivamente abonado`;
+
+            document.getElementById('kpiPending').innerText = formatMoney(pending);
+            document.getElementById('kpiPendingCount').innerText = `${pendingCount} por saldar / parciales`;
+
+            document.getElementById('kpiOverdue').innerText = formatMoney(overdue);
+            document.getElementById('kpiOverdueCount').innerText = `${overdueCount} gastos atrasados`;
+        }
+
+        function renderUrgentTable() {
+            const tbody = document.getElementById('urgentTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const urgent = payments
+                .filter(p => p.status === 'Vencido' || p.status === 'Próximo a Vencer' || p.status === 'Pago Parcial')
+                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            if (urgent.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400 text-xs">No hay gastos pendientes ni próximos a vencer en este momento. ¡Todo al día! 🎉</td></tr>`;
+                return;
+            }
+
+            urgent.forEach(p => {
+                const remaining = p.amount - (p.paidAmount || 0);
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-800">${p.title}</td>
+                    <td class="p-3 text-slate-600">${p.category}</td>
+                    <td class="p-3 text-slate-600">${p.dueDate}</td>
+                    <td class="p-3">${getStatusBadge(p.status)}</td>
+                    <td class="p-3 text-right font-bold text-slate-900">${formatMoney(p.amount)}</td>
+                    <td class="p-3 text-right font-bold text-amber-600">${formatMoney(remaining)}</td>
+                    <td class="p-3 text-center space-x-1">
+                        <button onclick="togglePaidStatus('${p.id}')" class="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded text-xs font-semibold transition" title="Marcar Pagado Completo">
+                            Pagado
+                        </button>
+                        <button onclick="openPartialModal('${p.id}')" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded text-xs font-semibold transition" title="Pago Parcial y Reagendar">
+                            Parcial
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function renderFullTable() {
+            const tbody = document.getElementById('fullTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const filtered = getFilteredPayments();
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 text-xs">No se encontraron gastos con los filtros aplicados.</td></tr>`;
+                return;
+            }
+
+            filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).forEach(p => {
+                const paid = p.paidAmount || (p.status === 'Pagado' ? p.amount : 0);
+                const remaining = p.amount - paid;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-800">${p.title}</td>
+                    <td class="p-3 text-slate-600">${p.category}</td>
+                    <td class="p-3 text-slate-500">${p.issueDate || '-'}</td>
+                    <td class="p-3 text-slate-600 font-medium">${p.dueDate}</td>
+                    <td class="p-3">${getStatusBadge(p.status)}</td>
+                    <td class="p-3 text-right font-bold text-slate-900">${formatMoney(p.amount)}</td>
+                    <td class="p-3 text-right text-xs">
+                        <div class="font-bold text-emerald-600">Abonado: ${formatMoney(paid)}</div>
+                        <div class="text-amber-600 font-semibold">Saldo: ${formatMoney(remaining)}</div>
+                    </td>
+                    <td class="p-3 text-center space-x-1">
+                        <button onclick="togglePaidStatus('${p.id}')" class="p-1 text-slate-400 hover:text-emerald-600 transition" title="Cambiar Estado Pagado/Pendiente">
+                            <i data-lucide="${p.status === 'Pagado' ? 'rotate-ccw' : 'check-circle'}" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="openPartialModal('${p.id}')" class="p-1 text-slate-400 hover:text-amber-600 transition" title="Registrar Pago Parcial">
+                            <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="editPayment('${p.id}')" class="p-1 text-slate-400 hover:text-indigo-600 transition" title="Editar">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deletePayment('${p.id}')" class="p-1 text-slate-400 hover:text-rose-600 transition" title="Eliminar">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function renderAll() {
+            updatePaymentStatuses();
+            renderKPIs();
+            renderUrgentTable();
+            renderFullTable();
+            renderCharts();
+            generateReport();
+        }
+
+        function updatePaymentStatuses() {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const alertDaysSelect = document.getElementById('alertDaysSelect');
+            const alertDays = alertDaysSelect ? parseInt(alertDaysSelect.value) : 5;
+
+            payments.forEach(p => {
+                if (p.status === 'Pagado') return;
+
+                const due = new Date(p.dueDate + 'T00:00:00');
+                const diffTime = due - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (p.paidAmount && p.paidAmount > 0 && p.paidAmount < p.amount) {
+                    p.status = 'Pago Parcial';
+                } else if (diffDays < 0) {
+                    p.status = 'Vencido';
+                } else if (diffDays <= alertDays) {
+                    p.status = 'Próximo a Vencer';
+                } else {
+                    p.status = 'Pendiente';
+                }
+            });
+        }
+
+        function getCurrencySymbol() {
+            const currEl = document.getElementById('currencySelect');
+            const curr = currEl ? currEl.value : 'ARS';
+            if (curr === 'EUR') return '€';
+            if (curr === 'USD') return 'USD $';
+            return '$';
+        }
+
+        function formatMoney(amount) {
+            const symbol = getCurrencySymbol();
+            return `${symbol} ${parseFloat(amount || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'Pagado') {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Pagado</span>`;
+            } else if (status === 'Pago Parcial') {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 flex items-center gap-1"><i data-lucide="pie-chart" class="w-3 h-3"></i> Pago Parcial</span>`;
+            } else if (status === 'Vencido') {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">Vencido</span>`;
+            } else if (status === 'Próximo a Vencer') {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 flex items-center gap-1"><i data-lucide="bell" class="w-3 h-3"></i> Próximo a Vencer</span>`;
+            } else {
+                return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Pendiente</span>`;
+            }
+        }
+
+        function getFilteredPayments() {
+            const searchInput = document.getElementById('filterSearch');
+            const catSelect = document.getElementById('filterCategory');
+            const statusSelect = document.getElementById('filterStatus');
+            const monthInput = document.getElementById('filterMonth');
+
+            const search = searchInput ? searchInput.value.toLowerCase() : '';
+            const category = catSelect ? catSelect.value : 'ALL';
+            const status = statusSelect ? statusSelect.value : 'ALL';
+            const month = monthInput ? monthInput.value : '';
+
+            return payments.filter(p => {
+                const matchesSearch = p.title.toLowerCase().includes(search);
+                const matchesCat = category === 'ALL' || p.category === category;
+                const matchesStatus = status === 'ALL' || p.status === status;
+                const matchesMonth = !month || p.dueDate.startsWith(month);
+                return matchesSearch && matchesCat && matchesStatus && matchesMonth;
+            });
+        }
+
+        function applyFilters() {
+            renderKPIs();
+            renderFullTable();
+            renderCharts();
+        }
+
+        function resetFilters() {
+            const search = document.getElementById('filterSearch');
+            const cat = document.getElementById('filterCategory');
+            const status = document.getElementById('filterStatus');
+            if (search) search.value = '';
+            if (cat) cat.value = 'ALL';
+            if (status) status.value = 'ALL';
+            setDefaultDates();
+            applyFilters();
+        }
+
+        function openPartialModal(id) {
+            const p = payments.find(item => item.id === id);
+            if (!p) return;
+
+            document.getElementById('partialPayId').value = p.id;
+            document.getElementById('partialPayTitle').innerText = p.title;
+            
+            const remainingToPay = p.amount - (p.paidAmount || 0);
+            document.getElementById('partialPayTotalAmount').innerText = formatMoney(remainingToPay);
+            document.getElementById('partialPaidAmount').value = '';
+            document.getElementById('partialRemainingDisplay').value = formatMoney(remainingToPay);
+
+            togglePartialScheduleOptions();
+            openModal('partialModal');
+        }
+
+        function calculatePartialRemaining() {
+            const id = document.getElementById('partialPayId').value;
+            const p = payments.find(item => item.id === id);
+            if (!p) return;
+
+            const remainingToPay = p.amount - (p.paidAmount || 0);
+            const inputPaid = parseFloat(document.getElementById('partialPaidAmount').value || 0);
+            const remaining = Math.max(0, remainingToPay - inputPaid);
+
+            document.getElementById('partialRemainingDisplay').value = formatMoney(remaining);
+        }
+
+        function togglePartialScheduleOptions() {
+            const type = document.getElementById('partialScheduleType').value;
+            const singleContainer = document.getElementById('partialDueDateContainer');
+            const instContainer = document.getElementById('partialInstallmentsContainer');
+
+            if (type === 'single') {
+                singleContainer.classList.remove('hidden');
+                instContainer.classList.add('hidden');
+            } else {
+                singleContainer.classList.add('hidden');
+                instContainer.classList.remove('hidden');
+            }
+        }
+
+        function savePartialPayment(e) {
+            e.preventDefault();
+            const id = document.getElementById('partialPayId').value;
+            const p = payments.find(item => item.id === id);
+            if (!p) return;
+
+            const paidNow = parseFloat(document.getElementById('partialPaidAmount').value || 0);
+            if (paidNow <= 0) {
+                alert('Por favor ingrese un monto válido abonado.');
+                return;
+            }
+
+            const currentRemaining = p.amount - (p.paidAmount || 0);
+            const remainingBalance = currentRemaining - paidNow;
+
+            // Update current payment entry
+            p.paidAmount = (p.paidAmount || 0) + paidNow;
+            if (p.paidAmount >= p.amount) {
+                p.status = 'Pagado';
+                p.paidAmount = p.amount;
+            } else {
+                p.status = 'Pago Parcial';
+            }
+
+            // If there's a remaining balance, schedule it in the calendar based on conditions
+            if (remainingBalance > 0) {
+                const scheduleType = document.getElementById('partialScheduleType').value;
+
+                if (scheduleType === 'single') {
+                    const nextDueDate = document.getElementById('partialNextDueDate').value || p.dueDate;
+                    payments.push({
+                        id: Date.now().toString(),
+                        title: `${p.title} (Saldo Restante)`,
+                        category: p.category,
+                        amount: remainingBalance,
+                        paidAmount: 0,
+                        issueDate: new Date().toISOString().split('T')[0],
+                        dueDate: nextDueDate,
+                        frequency: 'unique',
+                        status: 'Pendiente'
+                    });
+                } else {
+                    const count = parseInt(document.getElementById('partialInstallmentCount').value) || 2;
+                    const freq = document.getElementById('partialInstallmentFreq').value;
+                    const installmentAmount = remainingBalance / count;
+
+                    let baseDate = new Date();
+                    for (let i = 1; i <= count; i++) {
+                        let nextDate = new Date(baseDate);
+                        if (freq === 'weekly') {
+                            nextDate.setDate(nextDate.getDate() + (7 * i));
+                        } else if (freq === 'biweekly') {
+                            nextDate.setDate(nextDate.getDate() + (15 * i));
+                        } else {
+                            nextDate.setMonth(nextDate.getMonth() + i);
+                        }
+
+                        payments.push({
+                            id: (Date.now() + i).toString(),
+                            title: `${p.title} (Saldo Cuota ${i}/${count})`,
+                            category: p.category,
+                            amount: installmentAmount,
+                            paidAmount: 0,
+                            issueDate: new Date().toISOString().split('T')[0],
+                            dueDate: nextDate.toISOString().split('T')[0],
+                            frequency: 'unique',
+                            status: 'Pendiente'
+                        });
+                    }
+                }
+            }
+
+            closeModal('partialModal');
+            renderAll();
+        }
+
+        function savePayment(e) {
+            e.preventDefault();
+            const id = document.getElementById('payId').value;
+            const title = document.getElementById('payTitle').value;
+            const category = document.getElementById('payCategory').value;
+            const amount = parseFloat(document.getElementById('payAmount').value);
+            const issueDate = document.getElementById('payIssueDate').value;
+            const dueDate = document.getElementById('payDueDate').value;
+            const frequency = document.getElementById('payFrequency').value;
+            const status = document.getElementById('payStatus').value;
+            const paidAmount = status === 'Pagado' ? amount : 0;
+
+            if (id) {
+                const idx = payments.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    payments[idx] = { id, title, category, amount, paidAmount, issueDate, dueDate, frequency, status };
+                }
+            } else {
+                const newPayment = {
+                    id: Date.now().toString(),
+                    title, category, amount, paidAmount, issueDate, dueDate, frequency, status
+                };
+                payments.push(newPayment);
+
+                if (frequency === 'monthly') {
+                    let baseDate = new Date(dueDate + 'T00:00:00');
+                    for (let i = 1; i <= 3; i++) {
+                        let nextDate = new Date(baseDate);
+                        nextDate.setMonth(nextDate.getMonth() + i);
+                        payments.push({
+                            id: (Date.now() + i).toString(),
+                            title: `${title} (Recurrente ${i})`,
+                            category, amount, paidAmount: 0,
+                            issueDate: '',
+                            dueDate: nextDate.toISOString().split('T')[0],
+                            frequency,
+                            status: 'Pendiente'
+                        });
+                    }
+                }
+            }
+
+            closeModal('paymentModal');
+            document.getElementById('paymentForm').reset();
+            document.getElementById('payId').value = '';
+            renderAll();
+        }
+
+        function editPayment(id) {
+            const p = payments.find(item => item.id === id);
+            if (!p) return;
+
+            document.getElementById('modalTitle').innerText = 'Editar Gasto';
+            document.getElementById('payId').value = p.id;
+            document.getElementById('payTitle').value = p.title;
+            document.getElementById('payCategory').value = p.category;
+            document.getElementById('payAmount').value = p.amount;
+            document.getElementById('payIssueDate').value = p.issueDate || '';
+            document.getElementById('payDueDate').value = p.dueDate;
+            document.getElementById('payFrequency').value = p.frequency;
+            document.getElementById('payStatus').value = p.status;
+
+            openModal('paymentModal');
+        }
+
+        function togglePaidStatus(id) {
+            const p = payments.find(item => item.id === id);
+            if (p) {
+                if (p.status === 'Pagado') {
+                    p.status = 'Pendiente';
+                    p.paidAmount = 0;
+                } else {
+                    p.status = 'Pagado';
+                    p.paidAmount = p.amount;
+                }
+                renderAll();
+            }
+        }
+
+        function deletePayment(id) {
+            payments = payments.filter(p => p.id !== id);
+            renderAll();
+        }
+
+        function renderCharts() {
+            const filterMonthEl = document.getElementById('filterMonth');
+            if (!filterMonthEl) return;
+            const selectedMonth = filterMonthEl.value;
+            const monthPayments = payments.filter(p => p.dueDate.startsWith(selectedMonth));
+
+            // 1. Daily Breakdown Chart
+            const [yearStr, monthStr] = selectedMonth.split('-');
+            const daysInMonth = new Date(parseInt(yearStr), parseInt(monthStr), 0).getDate();
+            const dailyLabels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+            const dailyData = new Array(daysInMonth).fill(0);
+
+            monthPayments.forEach(p => {
+                const day = parseInt(p.dueDate.split('-')[2]);
+                if (day <= daysInMonth) {
+                    dailyData[day - 1] += p.amount;
+                }
+            });
+
+            const dailyCanvas = document.getElementById('dailyChart');
+            if (dailyCanvas) {
+                const ctxDaily = dailyCanvas.getContext('2d');
+                if (dailyChartInstance) dailyChartInstance.destroy();
+
+                dailyChartInstance = new Chart(ctxDaily, {
+                    type: 'bar',
+                    data: {
+                        labels: dailyLabels,
+                        datasets: [{
+                            label: 'Monto por Día',
+                            data: dailyData,
+                            backgroundColor: '#6366f1',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // 2. Category Doughnut Chart
+            const categoryTotals = {};
+            monthPayments.forEach(p => {
+                categoryTotals[p.category] = (categoryTotals[p.category] || 0) + p.amount;
+            });
+
+            const catLabels = Object.keys(categoryTotals);
+            const catData = Object.values(categoryTotals);
+
+            const categoryCanvas = document.getElementById('categoryChart');
+            if (categoryCanvas) {
+                const ctxCategory = categoryCanvas.getContext('2d');
+                if (categoryChartInstance) categoryChartInstance.destroy();
+
+                categoryChartInstance = new Chart(ctxCategory, {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels.length ? catLabels : ['Sin Datos'],
+                        datasets: [{
+                            data: catData.length ? catData : [1],
+                            backgroundColor: ['#4f46e5', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#ec4899', '#14b8a6']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            }
+        }
+
+        function generateReport() {
+            const reportPeriodEl = document.getElementById('reportPeriod');
+            const reportDateEl = document.getElementById('reportDate');
+            if (!reportPeriodEl || !reportDateEl) return;
+
+            const periodType = reportPeriodEl.value;
+            const dateVal = reportDateEl.value;
+            
+            let filtered = [];
+            let titleStr = "";
+            let subTitleStr = "";
+
+            if (periodType === 'monthly') {
+                filtered = payments.filter(p => p.dueDate.startsWith(dateVal));
+                titleStr = "Reporte Mensual de Gastos";
+                subTitleStr = `Periodo correspondiente a: ${dateVal}`;
+            } else if (periodType === '30days') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const next30Days = new Date(today);
+                next30Days.setDate(today.getDate() + 30);
+
+                filtered = payments.filter(p => {
+                    const d = new Date(p.dueDate + 'T00:00:00');
+                    return d >= today && d <= next30Days;
+                });
+                titleStr = "Reporte de Vencimientos a 30 Días Corridos";
+                subTitleStr = `Del ${today.toLocaleDateString('es-AR')} al ${next30Days.toLocaleDateString('es-AR')}`;
+            } else if (periodType === 'yearly') {
+                const year = dateVal.split('-')[0];
+                filtered = payments.filter(p => p.dueDate.startsWith(year));
+                titleStr = "Reporte Anual Consolidado de Gastos";
+                subTitleStr = `Año Fiscal: ${year}`;
+            } else if (periodType === 'weekly') {
+                const today = new Date();
+                const pastWeek = new Date();
+                pastWeek.setDate(today.getDate() - 7);
+                
+                filtered = payments.filter(p => {
+                    const d = new Date(p.dueDate + 'T00:00:00');
+                    return d >= pastWeek && d <= today;
+                });
+                titleStr = "Reporte Semanal de Vencimientos de Gastos";
+                subTitleStr = "Últimos 7 días corridos";
+            }
+
+            document.getElementById('reportTitle').innerText = titleStr;
+            document.getElementById('reportSubtitle').innerText = subTitleStr;
+            document.getElementById('reportGeneratedAt').innerText = new Date().toLocaleDateString('es-ES') + " " + new Date().toLocaleTimeString('es-ES');
+
+            const total = filtered.reduce((acc, p) => acc + p.amount, 0);
+            const paid = filtered.reduce((acc, p) => acc + (p.paidAmount || (p.status === 'Pagado' ? p.amount : 0)), 0);
+            const pending = total - paid;
+
+            document.getElementById('repTotal').innerText = formatMoney(total);
+            document.getElementById('repPaid').innerText = formatMoney(paid);
+            document.getElementById('repPending').innerText = formatMoney(pending);
+
+            const tbody = document.getElementById('reportTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            filtered.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate)).forEach(p => {
+                const pPaid = p.paidAmount || (p.status === 'Pagado' ? p.amount : 0);
+                const pRemaining = p.amount - pPaid;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2 font-medium">${p.dueDate}</td>
+                    <td class="p-2 font-semibold">${p.title}</td>
+                    <td class="p-2 text-slate-500">${p.category}</td>
+                    <td class="p-2">${p.status}</td>
+                    <td class="p-2 text-right font-bold">${formatMoney(p.amount)}</td>
+                    <td class="p-2 text-right text-emerald-600 font-semibold">${formatMoney(pPaid)}</td>
+                    <td class="p-2 text-right text-amber-600 font-semibold">${formatMoney(pRemaining)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    let importedCount = 0;
+                    results.data.forEach((row, index) => {
+                        const concept = row.Concepto || row.concepto || row.Title || row.title;
+                        const amount = parseFloat(row.Monto || row.monto || row.Amount || 0);
+                        const dueDate = row.Vencimiento || row.vencimiento || row.DueDate || new Date().toISOString().split('T')[0];
+                        const category = row.Categoria || row.categoria || row.Category || 'Otros';
+                        const status = row.Estado || row.estado || row.Status || 'Pendiente';
+
+                        if (concept && !isNaN(amount)) {
+                            payments.push({
+                                id: (Date.now() + index).toString(),
+                                title: concept,
+                                category: category,
+                                amount: amount,
+                                paidAmount: status === 'Pagado' ? amount : 0,
+                                issueDate: '',
+                                dueDate: dueDate,
+                                frequency: 'unique',
+                                status: status
+                            });
+                            importedCount++;
+                        }
+                    });
+
+                    closeModal('importModal');
+                    renderAll();
+                    alert(`¡Éxito! Se importaron ${importedCount} gastos desde tu planilla.`);
+                }
+            });
+        }
+
+        function downloadSampleCSV(e) {
+            e.preventDefault();
+            const csvContent = "data:text/csv;charset=utf-8," + 
+                "Concepto,Monto,Vencimiento,Categoria,Estado\n" +
+                "Tarjeta Visa Galicia,150000.00,2026-10-28,Tarjetas de Crédito,Pendiente\n" +
+                "Mantenimiento Aire,90000.00,2026-10-30,Costos Financieros,Pagado";
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "planilla_ejemplo_gastos.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportReportCSV() {
+            let csv = "Fecha Vencimiento,Concepto,Categoria,Estado,Monto Total,Monto Abonado,Saldo Restante\n";
+            const reportPeriodEl = document.getElementById('reportPeriod');
+            const reportDateEl = document.getElementById('reportDate');
+            const periodType = reportPeriodEl ? reportPeriodEl.value : 'monthly';
+            const dateVal = reportDateEl ? reportDateEl.value : '';
+            
+            let filtered = [];
+            if (periodType === '30days') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const next30Days = new Date(today);
+                next30Days.setDate(today.getDate() + 30);
+                filtered = payments.filter(p => {
+                    const d = new Date(p.dueDate + 'T00:00:00');
+                    return d >= today && d <= next30Days;
+                });
+            } else {
+                filtered = payments.filter(p => p.dueDate.startsWith(dateVal));
+            }
+
+            filtered.forEach(p => {
+                const paid = p.paidAmount || (p.status === 'Pagado' ? p.amount : 0);
+                const remaining = p.amount - paid;
+                csv += `"${p.dueDate}","${p.title}","${p.category}","${p.status}",${p.amount},${paid},${remaining}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Reporte_Gastos_${periodType}_${dateVal || '30dias'}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
